@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<extension key="biz.jmaconsulting.grantprograms.multifund" type="module">
+  <file>multifund</file>
+  <name>Grant Program MultiFund</name>
+  <description>This extension allows a backend user to add multiple fund sources for a grant payment.</description>
+  <license>AGPL-3.0</license>
+  <maintainer>
+    <author>Monish Deb</author>
+    <email>everyone@jmaconsulting.biz</email>
+  </maintainer>
+  <urls>
+    <url desc="Main Extension Page">http://FIXME</url>
+    <url desc="Documentation">http://FIXME</url>
+    <url desc="Support">http://FIXME</url>
+    <url desc="Licensing">http://www.gnu.org/licenses/agpl-3.0.html</url>
+  </urls>
+  <releaseDate>2018-09-20</releaseDate>
+  <version>1.0</version>
+  <develStage>alpha</develStage>
+  <compatibility>
+    <ver>5.0</ver>
+  </compatibility>
+  <requires>
+    <ext>biz.jmaconsulting.grantprograms</ext>
+  </requires>
+  <comments>This is a new, undeveloped module</comments>
+  <civix>
+    <namespace>CRM/Multifund</namespace>
+  </civix>
+</extension>
