@@ -15,7 +15,6 @@
 <script type="text/javascript">
 CRM.$(function($) {
   var submittedRows = $.parseJSON('{/literal}{$itemSubmitted}{literal}');
-  console.log(submittedRows);
   $.each(submittedRows, function(e, num) {
     isSubmitted = true;
     $('#add-item-row-' + num).removeClass('hiddenElement');
@@ -36,6 +35,11 @@ CRM.$(function($) {
     $('input[id^="multifund_amount"]', row).val('');
     row.addClass('hiddenElement').hide();
     $('#add-item').show();
+  });
+
+  $('#add-item').toggle(($("#status_id option:selected").text() != 'Eligible'));
+  $('#status_id').on('change', function() {
+    $('#add-item').toggle(($("#status_id option:selected").text() != 'Eligible'));
   });
 });
 </script>
