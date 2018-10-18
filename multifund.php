@@ -32,24 +32,6 @@ function multifund_civicrm_buildForm($formName, &$form) {
   }
 }
 
-function multifund_civicrm_postProcess($formName, &$form) {
-  if ($formName == 'CRM_Grant_Form_Grant' && !($form->_action & CRM_Core_Action::DELETE)) {
-    $values = $form->exportValues();
-    $totalCount = civicrm_api3('FinancialAccount', 'getcount', []);
-    $multifundEntries = [];
-    for ($i = 0; $i < $totalCount; $i++) {
-      if (!empty($values['financial_account'][$i])) {
-        $multifundEntries[$i] = [
-          'from_financial_account_id' => $values['financial_account'][$i],
-          'total_amount' => $values['multifund_amount'][$i],
-        ];
-      }
-    }
-    if (!empty($multifundEntries)) {
-      CRM_Core_BAO_Cache::setItem($multifundEntries, 'multifund entries', __FUNCTION__);
-    }
-  }
-}
 
 function multifund_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
   if ($formName == 'CRM_Grant_Form_Grant') {
