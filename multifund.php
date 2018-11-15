@@ -35,7 +35,6 @@ function multifund_civicrm_buildForm($formName, &$form) {
 
 function multifund_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
   if ($formName == 'CRM_Grant_Form_Grant') {
-    $multiEntries = [];
     $amount = CRM_Utils_Array::value('amount_total', $fields);
     $totalAmount = 0.00;
     $found = FALSE;
@@ -44,14 +43,43 @@ function multifund_civicrm_validateForm($formName, &$fields, &$files, &$form, &$
         $found = TRUE;
         $totalAmount += $value;
       }
-      if ($totalAmount > $amount) {
-        $errors["multifund_amount[$i]"] = ts('Sum of all source fund amounts exceeds the grant amount requested. Please adjust the source fund amount');
-      }
     }
-    if ($found && $totalAmount < $amount) {
+    if ($found && $totalAmount != $amount) {
       $errors["multifund_amount[0]"] = ts('Sum of all source fund amounts is less than the grant amount requested. Please adjust the source fund amount');
     }
   }
+}
+
+function multifund_civicrm_pageRun( &$page ) {
+  if ($page->getVar('_name') == "CRM_Grant_Page_Tab") {
+    $grantID = $page->getVar('_id');
+    $multiFundEntries = _getMultifundEntriesByGrant($grantID);
+    if ($multiFundEntries) {
+      $page->assign('multiFundEntries', $multiFundEntries);
+      CRM_Core_Region::instance('page-body')->add(array(
+        'template' => "CRM/MultifundItems.tpl",
+      ));
+    }
+  }
+}
+
+function _getMultifundEntriesByGrant($grantID, $mode = 'view') {
+  if (!$grantID) {
+    return;
+  }
+  $trxns = civicrm_api3('EntityFinancialTrxn', 'get', [
+    'entity_table' => 'civicrm_grant',
+    'entity_id' => $grantID,
+  ])['values'];
+  $multifundEntries = [];
+  $financialAccounts = CRM_Utils_Array::collect('name', civicrm_api3('FinancialAccount', 'get', [])['values']);
+  foreach ($trxns as $id => $value) {
+    $financialAccountID = civicrm_api3('FinancialTrxn', 'getvalue', ['id' => $value['financial_trxn_id'], 'return' => 'from_financial_account_id']);
+    $key = $mode == 'view' ? $financialAccounts[$financialAccountID] : $financialAccountID;
+    $multifundEntries[$key] = $value['amount'];
+  }
+
+  return $multifundEntries;
 }
 
 /**
