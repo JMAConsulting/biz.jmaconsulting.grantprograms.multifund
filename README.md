@@ -23,7 +23,7 @@ on the master branch which is not intended to be production ready all of the tim
 
 ```bash
 cd <extension-dir>
-cv dl biz.jmaconsulting.grantprograms.multifund@https://github.com/JMAConsulting/biz.jmaconsulting.grantprograms.multifund/archive/master.zip
+cv dl biz.jmaconsulting.grantprograms.multifund@https://github.com/JMAConsulting/biz.jmaconsulting.grantprograms.multifund/archive/0.1.zip
 ```
 
 ## Installation (CLI, Git)
