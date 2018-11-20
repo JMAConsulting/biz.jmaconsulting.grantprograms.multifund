@@ -7,8 +7,7 @@ biz.jmaconsulting.grantprograms.multifund is a 'sub-extension', since it extends
 
 ## Requirements
 
-* PHP v5.4+
-* CiviCRM v5.7+
+* CiviCRM 5.7+
 * [Grant Programs](https://github.com/JMAConsulting/biz.jmaconsulting.grantprograms)
 
 ## Installation (Web UI)
