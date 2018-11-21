@@ -90,7 +90,7 @@ function multifund_civicrm_pageRun( &$page ) {
     if ($multiFundEntries) {
       $page->assign('multiFundEntries', $multiFundEntries);
       CRM_Core_Region::instance('page-body')->add(array(
-        'template' => "CRM/MultifundItems.tpl",
+        'template' => "CRM/MultifundView.tpl",
       ));
     }
   }
