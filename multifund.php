@@ -13,23 +13,53 @@ function multifund_civicrm_config(&$config) {
 
 function multifund_civicrm_buildForm($formName, &$form) {
   if ($formName == 'CRM_Grant_Form_Grant' && !($form->_action & CRM_Core_Action::DELETE)) {
-    $result = civicrm_api3('FinancialAccount', 'get', [])['values'];
-    $totalCount = count($result);
-    $financialOptions = ['' => '- select -'] + CRM_Utils_Array::collect('name', $result);
+    $financialEntries = $_POST;
+    $defaults = [];
+    if ($form->_action & CRM_Core_Action::UPDATE) {
+      $financialEntries = _getFinancialEntries($form->getVar('_id'));
+    }
+    $result = civicrm_api3('FinancialAccount', 'get', ['financial_account_type_id' => "Expenses"])['values'];
+    $financialOptions = ['' => '- select source fund -'] + CRM_Utils_Array::collect('name', $result);
     $submittedValues = [];
-    for ($i = 0; $i < $totalCount; $i++) {
-      if (!empty($_POST['multifund_amount']) && !empty($_POST['multifund_amount'][$i])) {
+    for ($i = 0; $i < 2; $i++) {
+      if ((!empty($financialEntries['multifund_amount']) && !empty($financialEntries['multifund_amount'][$i])) || (!empty($financialEntries['financial_account']) && !empty($financialEntries['financial_account'][$i]))) {
         $submittedValues[] = $i;
+        if ($form->_action & CRM_Core_Action::UPDATE) {
+          $defaults["multifund_amount[$i]"] = $financialEntries['multifund_amount'][$i];
+          $defaults["financial_account[$i]"] = $financialEntries['financial_account'][$i];
+        }
       }
       $form->add('select', "financial_account[$i]", ts('Source Fund'), $financialOptions);
-      $form->add('text', "multifund_amount[$i]", ts('Amount'));
+      $form->add('text', "multifund_amount[$i]", ts('Amount'), ['placeholder' => 'amount']);
     }
-    $form->assign('totalCount', $totalCount);
+    if (!empty($defaults)) {
+      $form->setDefaults($defaults);
+    }
+    $form->assign('totalCount', 2);
     $form->assign('itemSubmitted', json_encode($submittedValues));
     CRM_Core_Region::instance('page-body')->add(array(
       'template' => "CRM/MultifundItems.tpl",
     ));
   }
+}
+
+function _getFinancialEntries($grantID) {
+  $sql = "SELECT fi.total_amount as amount, fi.from_financial_account_id, fi.id
+    FROM civicrm_financial_trxn fi
+     INNER JOIN civicrm_entity_financial_trxn eft ON eft.financial_trxn_id = fi.id AND eft.entity_table = 'civicrm_grant' AND eft.entity_id = $grantID
+   ";
+   $entries = [
+     'multifund_amount' => [],
+     'financial_account' => [],
+     'id' => [],
+   ];
+   foreach (CRM_Core_DAO::executeQuery($sql)->fetchAll() as $id => $entry) {
+     $entries['multifund_amount'][$id] = $entry['amount'];
+     $entries['financial_account'][$id] = $entry['from_financial_account_id'];
+     $entries['id'][$id] = $entry['id'];
+   }
+
+   return $entries;
 }
 
 
@@ -38,14 +68,17 @@ function multifund_civicrm_validateForm($formName, &$fields, &$files, &$form, &$
     $amount = CRM_Utils_Array::value('amount_total', $fields);
     $totalAmount = 0.00;
     $found = FALSE;
-    foreach($fields['multifund_amount'] as $i => $value) {
-      if (!empty($value)) {
+    for ($i = 0; $i < 2; $i++) {
+      if (!empty($fields['multifund_amount'][$i])) {
         $found = TRUE;
-        $totalAmount += $value;
+        $totalAmount += $fields['multifund_amount'][$i];
       }
     }
     if ($found && $totalAmount != $amount) {
       $errors["multifund_amount[0]"] = ts('Sum of all source fund amounts is less than the grant amount requested. Please adjust the source fund amount');
+    }
+    if ($fields['financial_account'][0] != '' && $fields['financial_account'][0] == $fields['financial_account'][1]) {
+      $errors["multifund_amount[0]"] = ts('Source funds must be unique');
     }
   }
 }
@@ -80,6 +113,47 @@ function _getMultifundEntriesByGrant($grantID, $mode = 'view') {
   }
 
   return $multifundEntries;
+}
+
+function multifund_civicrm_postProcess($formName, &$form) {
+  if ($formName == 'CRM_Grant_Form_Grant' && ($form->getVar('_action') & CRM_Core_Action::UPDATE)) {
+    $financialEntries = _getFinancialEntries($form->getVar('_id'));
+    $submittedValues = $form->exportValues();
+    for ($i = 0; $i < 2; $i++) {
+      if (!empty($financialEntries['multifund_amount'][$i]) && !empty($submittedValues['multifund_amount'][$i])) {
+        $params = [
+          'id' => $financialEntries['id'][$i],
+          'total_amount' => $submittedValues['multifund_amount'][$i],
+          'net_amount' => $submittedValues['multifund_amount'][$i],
+          'from_financial_account_id' => $submittedValues['financial_account'][$i],
+          'to_financial_account_id' => CRM_Contribute_PseudoConstant::getRelationalFinancialAccount($submittedValues['financial_type_id'], 'Asset Account is') ?: CRM_Grant_BAO_GrantProgram::getAssetFinancialAccountID(),
+        ];
+        civicrm_api3('FinancialTrxn', 'create', $params);
+        if ($eftID = civicrm_api3('EntityFinancialTrxn', 'getvalue', ['financial_trxn_id' => $financialEntries['id'][$id], 'entity_table' => 'civicrm_grant', 'return' => 'id'])) {
+          civicrm_api3('EntityFinancialTrxn', 'create', [
+            'id' => $eftID,
+            'amount' => $submittedValues['multifund_amount'][$i],
+          ]);
+        }
+      }
+    }
+    if (!empty($submittedValues['financial_type_id'])) {
+      $financialAccountID = CRM_Contribute_PseudoConstant::getRelationalFinancialAccount($submittedValues['financial_type_id'], 'Accounts Receivable Account is');
+      if ($fiID = civicrm_api3('FinancialItem', 'getvalue', ['entity_id' => $form->getVar('_id'), 'entity_table' => 'civicrm_grant', 'return' => 'id'])) {
+        civicrm_api3('FinancialItem', 'create', [
+          'id' => $fiID,
+          'amount' => $submittedValues['amount_total'],
+          'financial_account_id' => $financialAccountID,
+        ]);
+        if ($eftID = civicrm_api3('EntityFinancialTrxn', 'getvalue', ['entity_id' => $fiID, 'entity_table' => 'civicrm_financial_item', 'return' => 'id'])) {
+          civicrm_api3('EntityFinancialTrxn', 'create', [
+            'id' => $eftID,
+            'amount' => $submittedValues['amount_total'],
+          ]);
+        }
+      }
+    }
+  }
 }
 
 /**
